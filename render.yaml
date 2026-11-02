@@ -1,0 +1,54 @@
+services:
+  # -------------------------------------------------------------
+  # Backend API + Python Execution Sandbox (Docker Web Service)
+  # -------------------------------------------------------------
+  - type: web
+    name: nexusai-academy-api
+    env: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        fromService:
+          type: web
+          name: nexusai-academy-web
+          property: host
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: nexusai-academy-web
+          property: host
+
+  # -------------------------------------------------------------
+  # Frontend React Web App (Static Site)
+  # -------------------------------------------------------------
+  - type: web
+    name: nexusai-academy-web
+    env: static
+    plan: free
+    region: oregon
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: nexusai-academy-api
+          property: host

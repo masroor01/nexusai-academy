@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------
+  # PostgreSQL Database Service
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexusai_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-nexusai_academy}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------
+  # Backend API Server
+  # -------------------------------------------------------------
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: nexusai_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nexusai_academy?schema=public
+      JWT_SECRET: ${JWT_SECRET:-nexusai-academy-super-secret-production-grade-key-2026}
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "5000:5000"
+
+  # -------------------------------------------------------------
+  # React Client (Vite Preview / Nginx)
+  # -------------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: nexusai_client
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
